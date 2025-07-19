@@ -13,6 +13,7 @@ variable "ecr_repo_url" {
   type        = list(string)
 }
 
+
 #variable "availability_zones" {
 #  description = "List of availability zones"
 #  type        = list(string)

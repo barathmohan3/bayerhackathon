@@ -18,7 +18,6 @@ resource "aws_iam_role" "ecs_execution_role" {
 EOF
 }
 
-
 resource "aws_iam_policy" "ecs_execution_policy" {
   name = "${var.name}-ecs-policy"
 

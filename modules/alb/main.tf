@@ -12,6 +12,7 @@ resource "aws_lb" "main" {
   }
 }
 
+
 # Define Target Group 1 (for the first ECS service)
 resource "aws_lb_target_group" "ecs_target_group_1" {
   name     = "${var.name}-tg1"

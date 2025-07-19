@@ -1,0 +1,70 @@
+name: Build and Push to ECR
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push-service1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::539935451710:role/oidc-provider-1
+          role-session-name: github-assume
+          aws-region: us-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image for Service1
+        run: |
+          docker build -t ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:${{ github.sha }} ./docker/appointments
+          docker tag ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:${{ github.sha }} ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:latest
+
+      - name: Push Docker Image for Service1
+        run: |
+          docker push ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:${{ github.sha }}
+          docker push ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:latest
+
+      - name: Save Service1 Image Tag
+        run: echo "SERVICE1_IMAGE=${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-1:${{ github.sha }}" >> $GITHUB_ENV
+
+  build-push-service2:
+    runs-on: ubuntu-latest
+    needs: build-push-service1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::539935451710:role/oidc-provider-1
+          role-session-name: github-assume
+          aws-region: us-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image for Service2
+        run: |
+          docker build -t ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:${{ github.sha }} ./docker/patient
+          docker tag ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:${{ github.sha }} ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:latest
+
+      - name: Push Docker Image for Service2
+        run: |
+          docker push ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:${{ github.sha }}
+          docker push ${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:latest
+
+      - name: Save Service2 Image Tag
+        run: echo "SERVICE2_IMAGE=${{ vars.ECR_REGISTRY }}/ecs-cluster-repo-2:${{ github.sha }}" >> $GITHUB_ENV

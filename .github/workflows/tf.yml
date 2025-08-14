@@ -1,10 +1,10 @@
-name: Terraform Apply and Destroy
+name: Provision Infra using Terraform via EC2
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Terraform action to perform'
+        description: 'Terraform action to perform (apply/destroy)'
         required: true
         default: 'apply'
         type: choice
@@ -12,179 +12,43 @@ on:
           - apply
           - destroy
 
-  pull_request:
-
 permissions:
   id-token: write
   contents: write
 
 jobs:
-  setup:
-    name: Terraform Setup
+  provision:
+    name: Terraform Infra via EC2
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
 
-  lint:
-    name: TFLint and Checkov
-    runs-on: ubuntu-latest
-    needs: setup
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::271633506238:role/assume-github
-          aws-region: us-west-1
+          role-to-assume: arn:aws:iam::650251701672:role/s3-github
+          aws-region: us-east-2
 
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Install TFLint
-        run: |
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-
-      - name: Run TFLint
-        run: |
-          tflint --init
-          tflint --recursive
-        continue-on-error: true
-
-      - name: Install Checkov
-        run: |
-          python -m pip install --upgrade pip
-          pip install checkov
-
-      - name: Run Checkov
-        run: checkov -d . --skip-path .github/* --soft-fail
-        continue-on-error: true
-
-  validate:
-    name: Terraform Validate & Format
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.6
+          terraform_version: 1.10.5
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::271633506238:role/assume-github
-          aws-region: us-west-1
+      - name: Terraform format
+        run: terraform fmt
 
-      - name: Terraform Init
+      - name: Terraform init
         run: terraform init
 
-      - name: Terraform Format
-        run: terraform fmt -recursive
+      - name: Terraform plan
+        run: terraform plan
 
-      - name: Terraform Validate
-        run: terraform validate
-
-  test:
-    name: Terraform Test
-    runs-on: ubuntu-latest
-    needs: validate
-    if: github.event.inputs.action == 'apply'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::271633506238:role/assume-github
-          aws-region: us-west-1
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Run Terraform Tests
-        run: terraform test || echo "Terraform test failed but continuing..."
-
-  plan:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event.inputs.action == 'apply'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::271633506238:role/assume-github
-          aws-region: us-west-1
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Plan
-        run: terraform plan -no-color -input=false
-
-  deploy:
-    name: Terraform Apply or Destroy
-    runs-on: ubuntu-latest
-    needs: plan
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::271633506238:role/assume-github
-          aws-region: us-west-1
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform "${{ github.event.inputs.action }}"
+      - name: Terraform Apply or Destroy
         run: |
           if [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
           else
             terraform apply -auto-approve
           fi
-
-  docs:
-    name: Render Terraform Docs
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Render terraform docs and push changes back to PR
-        uses: terraform-docs/gh-actions@v1.1.0
-        with:
-          working-dir: .
-          output-file: README.md
-          output-method: inject
-          git-push: true

@@ -147,7 +147,6 @@ jobs:
     name: Terraform Apply or Destroy
     runs-on: ubuntu-latest
     needs: plan
-    if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Terraform

@@ -1,8 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "oidc-bucket-bm"
+    bucket         = "general-bh"
     key            = "ecs/terraform.tfstate"
     region         = "us-west-1"
     encrypt        = true
   }
 }
+
